@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>J-Bot Agent Fixer</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1015;--panel:#141c24;--line:#2b4b3c;--green:#32f58a;--muted:#a8b8ae;--text:#eff8f2;--red:#ff7777}
+*{box-sizing:border-box}body{margin:0;padding:20px;background:radial-gradient(ellipse at top,#13271f,var(--bg) 50%);color:var(--text);font:15px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+main{max-width:1100px;margin:auto}header{border-bottom:1px solid var(--line);padding:12px 0 20px;margin-bottom:20px}h1{font-size:clamp(1.4rem,3vw,2rem);margin:0;color:var(--green)}h2{font-size:1rem;margin:0 0 13px;color:#fff;letter-spacing:.06em;text-transform:uppercase}
+.sub,.note{color:var(--muted)}.sub{margin:.4rem 0}.note{font-size:.8rem}.status{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:30px;padding:4px 10px;font-size:.8rem}.dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:17px}
+label{display:block;font-size:.85rem;color:var(--muted);margin:11px 0 6px}input,select,textarea{width:100%;padding:11px;border-radius:7px;border:1px solid #3a5b4b;background:#080d11;color:var(--text);font:inherit}textarea{min-height:135px;resize:vertical}
+button{width:100%;padding:12px;margin-top:12px;border:0;border-radius:7px;background:var(--green);color:#03130a;font-weight:bold;font-family:inherit;cursor:pointer}button.secondary{background:#25392e;color:var(--text);border:1px solid #466652}button:disabled{opacity:.6;cursor:wait}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;min-height:120px;background:#070b0e;border:1px solid #263a32;border-radius:7px;padding:12px;color:#b8fbd1}.wide{grid-column:1/-1}
+@media(max-width:700px){body{padding:12px}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.card{padding:14px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>J-BOT AGENT FIXER</h1>
+<p class="sub">Contactless diagnostic platform · USB / wireless / supported service interfaces</p>
+<div class="status"><span class="dot"></span><span id="health">Checking local service…</span></div>
+</header>
+<div class="grid">
+<section class="card">
+<h2>Session authorization</h2>
+<label for="token">J-Bot session token</label>
+<input id="token" type="password" autocomplete="current-password" placeholder="Paste the token shown in the J-Bot terminal">
+<p class="note">The token is kept only in this page's memory and sent in request headers. Do not share it.</p>
+<button class="secondary" id="loadPacks">Authorize &amp; load modules</button>
+</section>
+<section class="card">
+<h2>Run diagnostics</h2>
+<label for="sector">Expansion pack</label>
+<select id="sector">
+<option value="usb_serial_monitor">USB &amp; Serial Monitor</option>
+<option value="phone_gadget_fixer">Phone &amp; Tablet</option>
+<option value="ebike_ev_fixer">E-bike &amp; E-scooter</option>
+<option value="console_fixer">Gaming Console</option>
+</select>
+<label for="payload">Diagnostic payload (JSON)</label>
+<textarea id="payload" spellcheck="false">{
+  "model": "",
+  "symptom": "device not detected",
+  "target": "read_only_diagnostic"
+}</textarea>
+<button id="run">Run diagnostic</button>
+<p class="note">This dashboard does not bypass locks, write firmware, or execute AI-generated shell commands.</p>
+</section>
+<section class="card">
+<h2>Diagnostic result</h2>
+<pre id="result" aria-live="polite">Authorize this session, choose a module, then run a diagnostic.</pre>
+</section>
+<section class="card">
+<h2>Diagnostic history</h2>
+<button id="historyButton" class="secondary">Load recent history</button>
+<pre id="history">The history file is stored on the J-Bot host computer.</pre>
+</section>
+</div>
+</main>
+<script>
+const token=()=>document.getElementById("token").value.trim();
+const put=(id,text)=>{document.getElementById(id).textContent=text;};
+async function api(path,options={}){
+ const headers={...(options.headers||{}),"X-JBot-Token":token()};
+ if(options.body) headers["Content-Type"]="application/json";
+ const res=await fetch(path,{...options,headers});
+ const body=await res.json().catch(()=>({detail:"Server returned an unreadable response."}));
+ if(!res.ok) throw new Error(body.detail||("HTTP "+res.status));
+ return body;
+}
+async function health(){
+ try{const r=await fetch("/health");const d=await r.json();put("health",d.status==="online"?"Local service online":"Service unavailable");}
+ catch{put("health","Local service unavailable");}
+}
+document.getElementById("loadPacks").addEventListener("click",async()=>{
+ try{
+  const d=await api("/sectors");
+  const select=document.getElementById("sector"),old=select.value;
+  select.replaceChildren();
+  for(const pack of d.sectors||[]){const opt=document.createElement("option");opt.value=pack.id;opt.textContent=pack.name;select.appendChild(opt);}
+  if([...select.options].some(x=>x.value===old))select.value=old;
+  put("result","Authorized. Loaded "+(d.sectors||[]).length+" modules.\nLoad errors: "+JSON.stringify(d.load_errors||{},null,2));
+ }catch(e){put("result","AUTHORIZATION / MODULE ERROR\n"+e.message);}
+});
+document.getElementById("run").addEventListener("click",async(ev)=>{
+ const button=ev.currentTarget;button.disabled=true;
+ try{
+  const data=JSON.parse(document.getElementById("payload").value);
+  if(!data||Array.isArray(data)||typeof data!=="object")throw new Error("Payload must be a JSON object.");
+  const pack=document.getElementById("sector").value;
+  put("result","Running local diagnostic for "+pack+"…");
+  put("result",JSON.stringify(await api("/fix/"+encodeURIComponent(pack),{method:"POST",body:JSON.stringify(data)}),null,2));
+ }catch(e){put("result","REQUEST FAILED\n"+e.message);}
+ finally{button.disabled=false;}
+});
+document.getElementById("historyButton").addEventListener("click",async()=>{
+ try{put("history",JSON.stringify(await api("/history?limit=50"),null,2));}
+ catch(e){put("history","Unable to load history\n"+e.message);}
+});
+health();
+</script>
+</body>
+</html>
