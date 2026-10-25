@@ -1,1 +1,3 @@
-# J-Bot MVP uses Python standard-library modules only.
+fastapi>=0.115,<1.0
+uvicorn>=0.30,<1.0
+pyserial>=3.5,<4.0
