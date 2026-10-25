@@ -1,70 +1,75 @@
-# J-Bot — Contactless Repair Intelligence
+# J-Bot Agent Fixer
 
-J-Bot is a local-first AI assistant for contactless device diagnostics. General chat and initial non-invasive diagnostics are free. **Detailed repair guidance and paid repair workflows require a verified payment entitlement.** J-Bot never opens devices, solders components, bypasses security, or executes AI-generated commands.
+J-Bot is a local-first contactless diagnostic assistant and modular expansion host. Current work lives on the branch `foundation/contactless-repair-mvp`; it is not yet merged into `main`.
 
-## What is implemented
-- Read-only Windows Plug-and-Play discovery.
-- Optional Android discovery through ADB.
-- Deterministic connection troubleshooting.
-- Local SQLite audit log.
-- Local Ollama chat using Python's standard library; no paid AI API is required.
-- Server-verified paid repair entitlement gate; it fails closed when billing is not configured.
-- Unit tests and Windows/Linux GitHub Actions checks.
+## Included components
 
-This is an implementation foundation, not a claim that every brand/model is supported or that a repair has been completed. Device support depends on the model, drivers, OS, permissions, cable, and manufacturer interfaces.
+- `core_engine.py`: authenticated FastAPI service, local dashboard, dynamic trusted local plugin loader, redacted local diagnostic history, and opt-in SMTP alerts.
+- `ui/index.html`: responsive HTML5 dashboard for desktop, tablet, and phone browsers.
+- `expansions/phone_gadget_fixer/`: contactless phone/tablet triage.
+- `expansions/ebike_ev_fixer/`: cautious e-bike/e-scooter fault triage.
+- `expansions/usb_serial_monitor/`: serial-port inventory and explicitly confirmed, bounded read-only capture.
+- `expansions/console_fixer/`: non-invasive gaming console troubleshooting.
+- `jbot/`: local Ollama AI command-line foundation, payment entitlement gate, SQLite event storage, and deterministic diagnostics.
+- `tests/`: regression and expansion tests.
+- `docs/`: contactless safety and paid-repair access rules.
 
-## Run on Windows 11
+Diagnostic recommendations are not proof a device was repaired. The plugins do not open devices or replace physical components. The USB serial plugin never writes bytes to a connected controller.
 
-### 1. Install prerequisites
-Install Python 3.12 or newer and [Ollama for Windows](https://ollama.com/download/windows). Ollama runs local models on your computer; local performance depends on memory and hardware.
+## Windows 11 quick start
 
-Open PowerShell and download a small model:
+1. Install Python 3.12+ and Git for Windows.
+2. Clone the repository and check out the working branch:
 
-    ollama pull qwen2.5:3b
+   ```powershell
+   git clone https://github.com/Jrocai1/J-Bot-.git
+   cd J-Bot-
+   git checkout foundation/contactless-repair-mvp
+   ```
 
-The model download is about 1.9 GB. The official model page is [Ollama Qwen2.5](https://ollama.com/library/qwen2.5).
+3. Double-click `run_jbot.bat`, or run it in PowerShell.
+4. Open `http://127.0.0.1:8080` in a browser.
+5. Copy the temporary session token displayed in the terminal into the dashboard's token field.
+6. Choose a module, enter diagnostic JSON, and run the diagnostic.
 
-### 2. Get the J-Bot branch
+The launch script creates a local virtual environment and installs the listed free/open-source dependencies. It does not install a paid API or send diagnostic data to a cloud model.
 
-    git clone https://github.com/Jrocai1/J-Bot-.git
-    cd J-Bot-
-    git checkout foundation/contactless-repair-mvp
+## Run the tests
 
-### 3. Run J-Bot
+```powershell
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
 
-    py -3 -m jbot status
-    py -3 -m jbot chat
+Or with a preconfigured Python installation:
 
-Ask a one-off question:
+```powershell
+py -3 -m unittest discover -s tests -v
+```
 
-    py -3 -m jbot ask "Why is my Android device not detected over USB?"
+## Optional local AI model
 
-Run a read-only scan:
+The `jbot` command-line AI uses a local Ollama server. Install Ollama and obtain a model supported by your PC:
 
-    py -3 -m jbot scan
+```powershell
+ollama pull qwen2.5:3b
+py -3 -m jbot chat
+```
 
-Print the free diagnostic checklist:
+The local AI command-line layer is separate from the current HTML5 diagnostic dashboard. No paid-repair entitlement is considered valid until a trusted billing service verifies it. Checkout is not live in this repository.
 
-    py -3 -m jbot diagnose
+## Security configuration
 
-Request a repair (locked until a trusted billing server confirms payment):
+The API binds to `127.0.0.1` by default. A temporary random access token is printed to the local terminal for that run. A configured `JBOT_ACCESS_TOKEN` is required before binding to a non-local address.
 
-    py -3 -m jbot repair --repair-id YOUR_REPAIR_SESSION_ID "Help me repair this device"
+To access from another device, do not expose a plain HTTP token endpoint directly to the public internet. Use HTTPS with an authenticated reverse proxy or a secured private VPN/tunnel and firewall rules. Never commit tokens or SMTP passwords.
 
-Tests:
+Optional email alerts are disabled unless `JBOT_EMAIL_ALERTS=1` is set and `JBOT_SMTP_SERVER`, `JBOT_SMTP_PORT`, `JBOT_SENDER_EMAIL`, `JBOT_SMTP_PASSWORD`, and `JBOT_RECEIVER_EMAIL` are configured in the process environment.
 
-    py -3 -m unittest discover -s tests -v
+## Hardware and repair boundaries
 
-If the repository is private, sign in to GitHub or use GitHub Desktop and confirm you have access. Never paste a personal access token into chat or commit it to source files.
-
-## Paid repair rule
-
-Free users can ask general questions and run safe, read-only diagnostics. Repair-specific prompts, detailed repair guidance, firmware work, resets, and fleet repair are treated as paid features. The AI module itself checks entitlement; a caller-supplied "paid" flag cannot unlock it.
-
-The gate expects a trusted HTTPS billing service configured with `JBOT_BILLING_URL` and an authenticated `JBOT_SESSION_TOKEN`. Its endpoint `POST /v1/entitlements/repair-check` must verify a real payment and return the exact repair session ID and paid status. The app does not accept a typed receipt or local flag as proof of payment.
-
-**Checkout is not live yet.** A payment provider, signed-webhook verifier, login/session backend, price catalog, refunds, and billing deployment must be configured and tested before collecting real customer payments or promising paid unlocks. Never store card numbers inside J-Bot.
-
-## Safety boundaries
-
-Inference is local to Ollama at `127.0.0.1`; remote inference endpoints are rejected by this MVP. No model-generated command is executed. Automatic firmware flashing, factory reset, bootloader changes, data erasure, and fleet OTA execution are not implemented. Only service devices you own or are explicitly authorized to repair.
+- All current device work is software-based, USB, or wireless.
+- No account-lock bypass, activation-lock bypass, FRP bypass, or unauthorized data access.
+- No automatic firmware flashing, resets, bootloader changes, speed-limit modification, controller-wire bypass, or other destructive changes.
+- Fault codes, voltage values, and symptoms submitted by a user are treated as reported data, not as independently verified measurements.
+- Only trusted local plugin code should be installed; Python plugins run inside the J-Bot process.
+- Fleet OTA, full enterprise IAM/SSO, and production payment checkout are not yet implemented.
