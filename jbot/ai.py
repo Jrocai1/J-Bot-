@@ -8,6 +8,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+from .access import check_paid_repair_access
+
 
 class OllamaUnavailable(RuntimeError):
     """Raised when the local model is unavailable or misconfigured."""
@@ -31,9 +33,6 @@ backups, verified compatibility, and supported recovery procedures. Prefer conci
 numbered troubleshooting instructions.
 """
 
-
-# Common actionable repair requests require payment. Diagnostics and general education
-# remain free; server-side entitlement verification is required to unlock these requests.
 _PAID_PATTERNS = re.compile(
     r"\b(repair|fix|step[- ]by[- ]step|flash(?:ing)?|firmware|factory reset|"
     r"reset (?:my|the|this) (?:phone|device|tablet|computer)|unlock bootloader|"
@@ -52,8 +51,6 @@ def is_paid_repair_request(prompt: str) -> bool:
 def _local_chat_url() -> str:
     url = os.environ.get("JBOT_OLLAMA_URL", "http://127.0.0.1:11434/api/chat").strip()
     parsed = urlparse(url)
-    # The MVP keeps inference local: prevent accidentally sending customer/device details
-    # to a remote URL through environment configuration.
     if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
         raise OllamaUnavailable(
             "J-Bot only permits a local Ollama endpoint. Use http://127.0.0.1:11434/api/chat."
@@ -61,13 +58,30 @@ def _local_chat_url() -> str:
     return url
 
 
-def ask_ollama(prompt: str, *, paid_repair: bool = False, timeout: int = 120) -> str:
-    """Send one prompt to the Ollama service on this computer."""
+def ask_ollama(
+    prompt: str,
+    *,
+    repair_id: str | None = None,
+    force_paid: bool = False,
+    timeout: int = 120,
+) -> str:
+    """Send a prompt to local Ollama, checking payment inside this function.
+
+    A caller-supplied boolean cannot unlock paid repair; the billing service must verify
+    an entitlement for the exact repair session.
+    """
     cleaned = (prompt or "").strip()
     if not cleaned:
         raise ValueError("Enter a question first.")
     if len(cleaned) > 12000:
         raise ValueError("Question is too long (maximum 12,000 characters).")
+
+    requires_payment = force_paid or is_paid_repair_request(cleaned)
+    paid_repair = False
+    if requires_payment:
+        paid_repair, reason = check_paid_repair_access(repair_id or "")
+        if not paid_repair:
+            raise PaymentRequired(reason)
 
     model = os.environ.get("JBOT_OLLAMA_MODEL", "qwen2.5:3b").strip()
     if not model:
