@@ -6,7 +6,6 @@ import json
 import platform
 from pathlib import Path
 
-from .access import check_paid_repair_access
 from .ai import OllamaUnavailable, PaymentRequired, ask_ollama, is_paid_repair_request
 from .diagnostics import recommend
 from .discovery import discover
@@ -14,14 +13,11 @@ from .storage import AuditStore
 
 
 def answer_prompt(prompt: str, repair_id: str | None = None, force_paid: bool = False) -> tuple[str | None, str | None]:
-    """Answer a question, verifying paid access before any repair-specific response."""
-    requires_payment = force_paid or is_paid_repair_request(prompt)
-    paid_repair = False
-    if requires_payment:
-        paid_repair, reason = check_paid_repair_access(repair_id or "")
-        if not paid_repair:
-            return None, reason
-    return ask_ollama(prompt, paid_repair=paid_repair), None
+    """Answer only after AI layer verifies any required payment."""
+    try:
+        return ask_ollama(prompt, repair_id=repair_id, force_paid=force_paid), None
+    except PaymentRequired as exc:
+        return None, str(exc)
 
 
 def run_chat(repair_id: str | None) -> int:
