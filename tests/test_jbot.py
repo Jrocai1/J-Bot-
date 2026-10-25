@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from jbot.access import check_paid_repair_access
-from jbot.ai import OllamaUnavailable, _local_chat_url, is_paid_repair_request
+from jbot.ai import OllamaUnavailable, PaymentRequired, _local_chat_url, ask_ollama, is_paid_repair_request
 from jbot.diagnostics import recommend
 from jbot.storage import AuditStore
 
@@ -46,6 +46,13 @@ class AiGateTests(unittest.TestCase):
             paid, reason = check_paid_repair_access("repair-123")
         self.assertFalse(paid)
         self.assertIn("not configured", reason.lower())
+
+    def test_ai_cannot_be_unlocked_by_a_caller_flag(self):
+        env = {k: v for k, v in os.environ.items()
+               if k not in {"JBOT_BILLING_URL", "JBOT_SESSION_TOKEN"}}
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaises(PaymentRequired):
+                ask_ollama("repair my phone", force_paid=True)
 
 
 class StorageTests(unittest.TestCase):
