@@ -1,41 +1,26 @@
-# J-Bot — Contactless Repair Intelligence
+# My App
 
-J-Bot is a local-first contactless repair assistant. It starts with read-only discovery and deterministic troubleshooting. It does not open devices, solder, bypass account locks, or automatically flash firmware.
+An app built with [Builder.io](https://www.builder.io) on the
+[Agent-Native](https://agent-native.com?utm_source=github&utm_medium=referral&utm_content=fusion-starter-readme) framework. Replace this paragraph with
+what the app does and who it's for.
 
-## Current foundation
-- Read-only Windows Plug-and-Play discovery.
-- Optional Android discovery through Android Debug Bridge (ADB), if installed.
-- Deterministic connection troubleshooting.
-- Local SQLite audit log.
-- No paid APIs or third-party Python packages required.
-- Unit tests using Python's standard library.
+## Develop locally
 
-This is a working foundation, not a claim that every brand/model is supported or that a repair has been completed. Device support depends on model, drivers, OS, permissions, cable, and manufacturer interfaces.
+```bash
+cp .env.example .env
+corepack enable
+pnpm install
+pnpm dev
+```
 
-## Run on Windows 11
-Install Python 3.12 or newer, extract the repository ZIP, open PowerShell in the project folder, and run:
+`.env.example` sets `AUTH_DISABLED=true` as a commented-out option; uncomment it
+to skip sign-in while developing.
 
-    py -3 -m jbot
+## Project layout
 
-Read-only scan: `py -3 -m jbot scan`
+- `app/`: routes and UI components
+- `actions/`: operations shared by the UI and the app's agent
+- `server/`: server plugins and the database client
+- `drizzle/`: schema and migrations; start with `drizzle/START_HERE.md`
 
-Troubleshooting checklist: `py -3 -m jbot diagnose`
-
-Tests: `py -3 -m unittest discover -s tests -v`
-
-Or double-click run-jbot.bat.
-
-## Run with Git
-Install Git for Windows, then use PowerShell:
-
-    git clone https://github.com/Jrocai1/J-Bot-.git
-    cd J-Bot-
-    py -3 -m jbot
-
-If the repository is private, sign in to GitHub or use GitHub Desktop and ensure you have repository access. Never paste access tokens into chat or commit them to source files.
-
-## Optional Android discovery
-Install Android Platform Tools from the official Android developer site. Enable USB debugging only on devices you own or are explicitly authorized to service, connect the device, and approve its prompt. Then run the scan command. If ADB is missing, J-Bot reports that Android discovery is unavailable instead of pretending a device was found.
-
-## Safety and boundaries
-Discovery and recommendations are read-only. No model-generated shell commands are executed. Firmware, factory reset, bootloader changes, and data erasure are not implemented. Real repair workflows require model-specific adapters, verified manufacturer procedures, compatibility data, and hardware testing before support is advertised.
+Framework docs: [agent-native.com/docs](https://agent-native.com/docs?utm_source=github&utm_medium=referral&utm_content=fusion-starter-readme).
