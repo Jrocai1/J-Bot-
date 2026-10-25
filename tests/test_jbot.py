@@ -3,6 +3,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import closing
 from unittest.mock import patch
 
 from jbot.access import check_paid_repair_access
@@ -60,7 +61,7 @@ class StorageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             db = Path(directory) / "jbot.sqlite3"
             AuditStore(db).record("test", {"count": 1})
-            with sqlite3.connect(db) as conn:
+            with closing(sqlite3.connect(db)) as conn:
                 row = conn.execute("SELECT event_type, payload_json FROM audit_events").fetchone()
             self.assertEqual(row[0], "test")
             self.assertIn('"count": 1', row[1])
